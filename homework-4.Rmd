@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE,
 
 For this assignment, we will continue working with part of a [Kaggle data set](https://www.kaggle.com/c/titanic/overview) that was the subject of a machine learning competition and is often used for practicing ML models. The goal is classification; specifically, to predict which passengers would survive the [Titanic shipwreck](https://en.wikipedia.org/wiki/Titanic).
 
-![Fig. 1: RMS Titanic departing Southampton on April 10, 1912.](images/RMS_Titanic.jpg){width="363"}
+![Fig. 1: RMS Titanic departing Southampton on April 10, 1912.](RMS_Titanic.jpg){width="363"}
 
 Load the data from `data/titanic.csv` into *R* and familiarize yourself with the variables it contains using the codebook (`data/titanic_codebook.txt`).
 
@@ -28,18 +28,77 @@ Make sure you load the `tidyverse` and `tidymodels`!
 *Remember that you'll need to set a seed at the beginning of the document to reproduce your results.*
 
 Create a recipe for this dataset **identical** to the recipe you used in Homework 3.
-
+```{r include=FALSE}
+library(ISLR)
+library(tidyverse)
+library(tidymodels)
+library(readr)
+library(corrr)
+library(corrplot)
+library(discrim)
+library(klaR)
+library(tune)
+tidymodels_prefer()
+titanic <- read_csv("titanic.csv")
+titanic$survived = factor(titanic$survived, levels=c("Yes", "No"))
+titanic$pclass = factor(titanic$pclass)
+titanic
+```
 ### Question 1
 
 Split the data, stratifying on the outcome variable, `survived.`  You should choose the proportions to split the data into. Verify that the training and testing data sets have the appropriate number of observations. 
+```{r}
+set.seed(3435)
+titanic_split <- initial_split(titanic, prop = 0.70, strata = survived)
+titanic_train <- training(titanic_split)
+titanic_test <- testing(titanic_split)
+
+dim(titanic_train)
+
+dim(titanic_test)
+```
+```{r}
+titanic_train_recipe <- recipe(survived ~ pclass + sex + age + sib_sp + parch + fare, data = titanic_train) %>%
+  step_impute_linear(age, impute_with = imp_vars(sib_sp)) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_interact(~ starts_with("sex"):fare + age:fare) %>%
+  step_poly(titanic$survived, degree = tune())
+```
 
 ### Question 2
 
 Fold the **training** data. Use *k*-fold cross-validation, with $k = 10$.
 
+```{r}
+set.seed(345)
+titanic_folds <- vfold_cv(titanic_train, v = 10)
+titanic_folds
+```
+```{r}
+degree_grid <- grid_regular(degree(range = c(1, 10)), levels = 10)
+```
+```{r}
+lm_spec <- linear_reg() %>%
+  set_mode("regression") %>%
+  set_engine("lm")
+
+poly_tuned_wf <- workflow() %>%
+  add_recipe(titanic_train_recipe) %>%
+  add_model(lm_spec)
+
+tune_res <- tune_grid(
+  object = poly_tuned_wf, 
+  resamples = titanic_folds, 
+  grid = degree_grid,
+  control = control_grid(verbose = TRUE))
+```
+
 ### Question 3
 
 In your own words, explain what we are doing in Question 2. What is *k*-fold cross-validation? Why should we use it, rather than simply fitting and testing models on the entire training set? If we **did** use the entire training set, what resampling method would that be?
+
+Answer:
+K-fold cross-validation is a data partitioning strategy so that allows you to more effectively use your data set to build a more generalized model. We use k-fold cross-validation because it ensures that every observation from the original data set has the chance of appearing in the training and the test set. If we used the entire training set, that would be the validation set approach.
 
 ### Question 4
 
@@ -51,11 +110,42 @@ Set up workflows for 3 models:
 
 How many models, total, across all folds, will you be fitting to the data? To answer, think about how many folds there are, and how many models you'll fit to each fold.
 
+```{r}
+log_reg <- logistic_reg() %>% 
+  set_engine("glm") %>% 
+  set_mode("classification")
+
+log_wkflow <- workflow() %>% 
+  add_model(log_reg) %>% 
+  add_recipe(titanic_train_recipe)
+
+lda_mod <- discrim_linear() %>% 
+  set_mode("classification") %>% 
+  set_engine("MASS")
+
+lda_wkflow <- workflow() %>% 
+  add_model(lda_mod) %>% 
+  add_recipe(titanic_train_recipe)
+
+qda_mod <- discrim_quad() %>% 
+  set_mode("classification") %>% 
+  set_engine("MASS")
+
+qda_wkflow <- workflow() %>% 
+  add_model(qda_mod) %>% 
+  add_recipe(titanic_train_recipe)
+```
+There will be 30 models to fit to the data.
+
 ### Question 5
 
 Fit each of the models created in Question 4 to the folded data.
 
 **IMPORTANT:** *Some models may take a while to run – anywhere from 3 to 10 minutes. You should NOT re-run these models each time you knit. Instead, run them once, using an R script, and store your results; look into the use of [loading and saving](https://www.r-bloggers.com/2017/04/load-save-and-rda-files/). You should still include the code to run them when you knit, but set `eval = FALSE` in the code chunks.*
+```{r}
+log_fit <- fit_resamples(log_wkflow, titanic_folds)
+log_fit
+```
 
 ### Question 6
 
