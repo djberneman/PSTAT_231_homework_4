@@ -30,6 +30,7 @@ Make sure you load the `tidyverse` and `tidymodels`!
 Create a recipe for this dataset **identical** to the recipe you used in Homework 3.
 ```{r include=FALSE}
 library(ISLR)
+library(ISLR2)
 library(tidyverse)
 library(tidymodels)
 library(readr)
@@ -61,36 +62,36 @@ dim(titanic_test)
 titanic_train_recipe <- recipe(survived ~ pclass + sex + age + sib_sp + parch + fare, data = titanic_train) %>%
   step_impute_linear(age, impute_with = imp_vars(sib_sp)) %>%
   step_dummy(all_nominal_predictors()) %>%
-  step_interact(~ starts_with("sex"):fare + age:fare) %>%
-  step_poly(titanic$survived, degree = tune())
+  step_interact(~ starts_with("sex"):fare + age:fare)
 ```
 
 ### Question 2
 
 Fold the **training** data. Use *k*-fold cross-validation, with $k = 10$.
+```{r}
+lm_spec <- linear_reg() %>%
+  set_mode("regression") %>%
+  set_engine("lm")
+```
+```{r}
+poly_tuned_rec <- titanic_train_recipe 
 
+poly_tuned_wf <- workflow() %>%
+  add_recipe(poly_tuned_rec) %>%
+  add_model(lm_spec)
+```
 ```{r}
 set.seed(345)
 titanic_folds <- vfold_cv(titanic_train, v = 10)
 titanic_folds
 ```
 ```{r}
-degree_grid <- grid_regular(degree(range = c(1, 10)), levels = 10)
-```
-```{r}
-lm_spec <- linear_reg() %>%
-  set_mode("regression") %>%
-  set_engine("lm")
-
-poly_tuned_wf <- workflow() %>%
-  add_recipe(titanic_train_recipe) %>%
-  add_model(lm_spec)
-
 tune_res <- tune_grid(
   object = poly_tuned_wf, 
   resamples = titanic_folds, 
-  grid = degree_grid,
   control = control_grid(verbose = TRUE))
+
+autoplot(tune_res)
 ```
 
 ### Question 3
@@ -145,6 +146,12 @@ Fit each of the models created in Question 4 to the folded data.
 ```{r}
 log_fit <- fit_resamples(log_wkflow, titanic_folds)
 log_fit
+
+qda_fit <- fit_resamples(qda_wkflow, titanic_folds)
+qda_fit
+
+lda_fit <- fit_resamples(lda_wkflow, titanic_folds)
+lda_fit
 ```
 
 ### Question 6
@@ -152,6 +159,9 @@ log_fit
 Use `collect_metrics()` to print the mean and standard errors of the performance metric *accuracy* across all folds for each of the four models.
 
 Decide which of the 3 fitted models has performed the best. Explain why. *(Note: You should consider both the mean accuracy and its standard error.)*
+```{r}
+collect_metrics(tune_res)
+```
 
 ### Question 7
 
@@ -162,6 +172,11 @@ Now that you’ve chosen a model, fit your chosen model to the entire training d
 Finally, with your fitted model, use `predict()`, `bind_cols()`, and `accuracy()` to assess your model’s performance on the testing data!
 
 Compare your model’s testing accuracy to its average accuracy across folds. Describe what you see.
+```{r}
+bind_cols(predict(log_fit, new_data = titanic_train, type = "prob"),
+predict(lda_fit, new_data = titanic_train, type = "prob"),
+predict(qda_fit, new_data = titanic_train, type = "prob"))
+```
 
 ## Required for 231 Students
 
