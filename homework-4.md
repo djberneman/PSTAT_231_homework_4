@@ -9,10 +9,7 @@ output:
       keep_md: true
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE,
-                      warning = FALSE)
-```
+
 
 ## Resampling
 
@@ -29,37 +26,33 @@ Make sure you load the `tidyverse` and `tidymodels`!
 *Remember that you'll need to set a seed at the beginning of the document to reproduce your results.*
 
 Create a recipe for this dataset **identical** to the recipe you used in Homework 3.
-```{r include=FALSE}
-library(ISLR)
-library(ISLR2)
-library(tidyverse)
-library(tidymodels)
-library(readr)
-library(corrr)
-library(corrplot)
-library(discrim)
-library(klaR)
-library(tune)
-tidymodels_prefer()
-titanic <- read_csv("titanic.csv")
-titanic$survived = factor(titanic$survived, levels=c("Yes", "No"))
-titanic$pclass = factor(titanic$pclass)
-titanic
-```
+
 ### Question 1
 
 Split the data, stratifying on the outcome variable, `survived.`  You should choose the proportions to split the data into. Verify that the training and testing data sets have the appropriate number of observations. 
-```{r}
+
+```r
 set.seed(3435)
 titanic_split <- initial_split(titanic, prop = 0.70, strata = survived)
 titanic_train <- training(titanic_split)
 titanic_test <- testing(titanic_split)
 
 dim(titanic_train)
+```
 
+```
+## [1] 623  12
+```
+
+```r
 dim(titanic_test)
 ```
-```{r}
+
+```
+## [1] 268  12
+```
+
+```r
 titanic_train_recipe <- recipe(survived ~ pclass + sex + age + sib_sp + parch + fare, data = titanic_train) %>%
   step_impute_linear(age, impute_with = imp_vars(sib_sp)) %>%
   step_dummy(all_nominal_predictors()) %>%
@@ -69,12 +62,14 @@ titanic_train_recipe <- recipe(survived ~ pclass + sex + age + sib_sp + parch + 
 ### Question 2
 
 Fold the **training** data. Use *k*-fold cross-validation, with $k = 10$.
-```{r}
+
+```r
 lm_spec <- linear_reg() %>%
   set_mode("regression") %>%
   set_engine("lm")
 ```
-```{r}
+
+```r
 set.seed(345)
 titanic_folds <- vfold_cv(titanic_train, v = 10)
 ```
@@ -97,7 +92,8 @@ Set up workflows for 3 models:
 
 How many models, total, across all folds, will you be fitting to the data? To answer, think about how many folds there are, and how many models you'll fit to each fold.
 
-```{r}
+
+```r
 log_reg <- logistic_reg() %>% 
   set_engine("glm") %>% 
   set_mode("classification")
@@ -129,15 +125,74 @@ There will be 30 models to fit to the data.
 Fit each of the models created in Question 4 to the folded data.
 
 **IMPORTANT:** *Some models may take a while to run – anywhere from 3 to 10 minutes. You should NOT re-run these models each time you knit. Instead, run them once, using an R script, and store your results; look into the use of [loading and saving](https://www.r-bloggers.com/2017/04/load-save-and-rda-files/). You should still include the code to run them when you knit, but set `eval = FALSE` in the code chunks.*
-```{r}
+
+```r
 log_fit <- fit_resamples(log_wkflow, titanic_folds)
 log_fit
+```
 
+```
+## # Resampling results
+## # 10-fold cross-validation 
+## # A tibble: 10 x 4
+##    splits           id     .metrics         .notes          
+##    <list>           <chr>  <list>           <list>          
+##  1 <split [560/63]> Fold01 <tibble [2 x 4]> <tibble [0 x 3]>
+##  2 <split [560/63]> Fold02 <tibble [2 x 4]> <tibble [0 x 3]>
+##  3 <split [560/63]> Fold03 <tibble [2 x 4]> <tibble [0 x 3]>
+##  4 <split [561/62]> Fold04 <tibble [2 x 4]> <tibble [0 x 3]>
+##  5 <split [561/62]> Fold05 <tibble [2 x 4]> <tibble [0 x 3]>
+##  6 <split [561/62]> Fold06 <tibble [2 x 4]> <tibble [0 x 3]>
+##  7 <split [561/62]> Fold07 <tibble [2 x 4]> <tibble [0 x 3]>
+##  8 <split [561/62]> Fold08 <tibble [2 x 4]> <tibble [0 x 3]>
+##  9 <split [561/62]> Fold09 <tibble [2 x 4]> <tibble [0 x 3]>
+## 10 <split [561/62]> Fold10 <tibble [2 x 4]> <tibble [0 x 3]>
+```
+
+```r
 qda_fit <- fit_resamples(qda_wkflow, titanic_folds)
 qda_fit
+```
 
+```
+## # Resampling results
+## # 10-fold cross-validation 
+## # A tibble: 10 x 4
+##    splits           id     .metrics         .notes          
+##    <list>           <chr>  <list>           <list>          
+##  1 <split [560/63]> Fold01 <tibble [2 x 4]> <tibble [0 x 3]>
+##  2 <split [560/63]> Fold02 <tibble [2 x 4]> <tibble [0 x 3]>
+##  3 <split [560/63]> Fold03 <tibble [2 x 4]> <tibble [0 x 3]>
+##  4 <split [561/62]> Fold04 <tibble [2 x 4]> <tibble [0 x 3]>
+##  5 <split [561/62]> Fold05 <tibble [2 x 4]> <tibble [0 x 3]>
+##  6 <split [561/62]> Fold06 <tibble [2 x 4]> <tibble [0 x 3]>
+##  7 <split [561/62]> Fold07 <tibble [2 x 4]> <tibble [0 x 3]>
+##  8 <split [561/62]> Fold08 <tibble [2 x 4]> <tibble [0 x 3]>
+##  9 <split [561/62]> Fold09 <tibble [2 x 4]> <tibble [0 x 3]>
+## 10 <split [561/62]> Fold10 <tibble [2 x 4]> <tibble [0 x 3]>
+```
+
+```r
 lda_fit <- fit_resamples(lda_wkflow, titanic_folds)
 lda_fit
+```
+
+```
+## # Resampling results
+## # 10-fold cross-validation 
+## # A tibble: 10 x 4
+##    splits           id     .metrics         .notes          
+##    <list>           <chr>  <list>           <list>          
+##  1 <split [560/63]> Fold01 <tibble [2 x 4]> <tibble [0 x 3]>
+##  2 <split [560/63]> Fold02 <tibble [2 x 4]> <tibble [0 x 3]>
+##  3 <split [560/63]> Fold03 <tibble [2 x 4]> <tibble [0 x 3]>
+##  4 <split [561/62]> Fold04 <tibble [2 x 4]> <tibble [0 x 3]>
+##  5 <split [561/62]> Fold05 <tibble [2 x 4]> <tibble [0 x 3]>
+##  6 <split [561/62]> Fold06 <tibble [2 x 4]> <tibble [0 x 3]>
+##  7 <split [561/62]> Fold07 <tibble [2 x 4]> <tibble [0 x 3]>
+##  8 <split [561/62]> Fold08 <tibble [2 x 4]> <tibble [0 x 3]>
+##  9 <split [561/62]> Fold09 <tibble [2 x 4]> <tibble [0 x 3]>
+## 10 <split [561/62]> Fold10 <tibble [2 x 4]> <tibble [0 x 3]>
 ```
 
 ### Question 6
@@ -145,19 +200,92 @@ lda_fit
 Use `collect_metrics()` to print the mean and standard errors of the performance metric *accuracy* across all folds for each of the four models.
 
 Decide which of the 3 fitted models has performed the best. Explain why. *(Note: You should consider both the mean accuracy and its standard error.)*
-```{r}
+
+```r
 collect_metrics(log_fit)
+```
+
+```
+## # A tibble: 2 x 6
+##   .metric  .estimator  mean     n std_err .config             
+##   <chr>    <chr>      <dbl> <int>   <dbl> <fct>               
+## 1 accuracy binary     0.786    10  0.0152 Preprocessor1_Model1
+## 2 roc_auc  binary     0.830    10  0.0135 Preprocessor1_Model1
+```
+
+```r
 collect_metrics(lda_fit)
+```
+
+```
+## # A tibble: 2 x 6
+##   .metric  .estimator  mean     n std_err .config             
+##   <chr>    <chr>      <dbl> <int>   <dbl> <fct>               
+## 1 accuracy binary     0.780    10  0.0134 Preprocessor1_Model1
+## 2 roc_auc  binary     0.833    10  0.0117 Preprocessor1_Model1
+```
+
+```r
 collect_metrics(qda_fit)
+```
+
+```
+## # A tibble: 2 x 6
+##   .metric  .estimator  mean     n std_err .config             
+##   <chr>    <chr>      <dbl> <int>   <dbl> <fct>               
+## 1 accuracy binary     0.762    10  0.0153 Preprocessor1_Model1
+## 2 roc_auc  binary     0.827    10  0.0136 Preprocessor1_Model1
 ```
 The lda model performed the best because it has the lowest standard error and the second highest accuracy.
 
 ### Question 7
 
 Now that you’ve chosen a model, fit your chosen model to the entire training dataset (not to the folds).
-```{r}
+
+```r
 lda_fit1 <- fit(lda_wkflow, titanic_train)
 lda_fit1
+```
+
+```
+## == Workflow [trained] ==========================================================
+## Preprocessor: Recipe
+## Model: discrim_linear()
+## 
+## -- Preprocessor ----------------------------------------------------------------
+## 3 Recipe Steps
+## 
+## * step_impute_linear()
+## * step_dummy()
+## * step_interact()
+## 
+## -- Model -----------------------------------------------------------------------
+## Call:
+## lda(..y ~ ., data = data)
+## 
+## Prior probabilities of groups:
+##       Yes        No 
+## 0.3836276 0.6163724 
+## 
+## Group means:
+##          age    sib_sp     parch     fare pclass_X2 pclass_X3  sex_male
+## Yes 29.16496 0.4393305 0.4267782 48.81424 0.2552301 0.3389121 0.3472803
+## No  30.05569 0.5807292 0.3463542 22.99299 0.1744792 0.6770833 0.8489583
+##     sex_male_x_fare fare_x_age
+## Yes        12.91229  1558.8148
+## No         19.63018   697.5167
+## 
+## Coefficients of linear discriminants:
+##                           LD1
+## age              0.0322121339
+## sib_sp           0.2208266971
+## parch            0.0918861052
+## fare             0.0028507145
+## pclass_X2        0.8006495804
+## pclass_X3        1.5603350324
+## sex_male         1.9823061521
+## sex_male_x_fare  0.0017471177
+## fare_x_age      -0.0001416796
 ```
 
 ### Question 8
@@ -165,11 +293,20 @@ lda_fit1
 Finally, with your fitted model, use `predict()`, `bind_cols()`, and `accuracy()` to assess your model’s performance on the testing data!
 
 Compare your model’s testing accuracy to its average accuracy across folds. Describe what you see.
-```{r}
+
+```r
 lda_acc <- augment(lda_fit1, new_data = titanic_test) %>%
   accuracy(truth = survived, estimate = .pred_class)
 
 bind_rows(collect_metrics(lda_fit)[1,1:3], lda_acc)
+```
+
+```
+## # A tibble: 2 x 4
+##   .metric  .estimator   mean .estimate
+##   <chr>    <chr>       <dbl>     <dbl>
+## 1 accuracy binary      0.780    NA    
+## 2 accuracy binary     NA         0.817
 ```
 The estimate for the testing data is much higher than the average of the 10-fold training data.
 
